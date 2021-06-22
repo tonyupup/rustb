@@ -1,0 +1,12 @@
+2409:8a70:d5b0:1d00:7c56:8abe:8941:a49e dev br-lan lladdr e0:1f:88:f6:66:82 STALE
+2409:8a70:d5b0:1d00:68b9:9d1a:f13f:82b6 dev br-lan lladdr d8:32:e3:0a:89:5e STALE
+2409:8a70:d5b0:1d00:fd3e:c145:a0be:dab8 dev br-lan  FAILED
+fe80::2be1:ab0a:a965:cf81 dev br-lan lladdr b8:27:eb:a5:d0:af STALE
+2409:8a70:d5b0:1d00:2e0:67ff:fe1c:1d64 dev br-lan  FAILED
+fe80::9687:e0ff:fe44:e232 dev br-lan lladdr 94:87:e0:44:e2:32 REACHABLE
+fe80::2618:c6ff:fe80:4cfd dev br-lan lladdr 24:18:c6:80:4c:fd STALE
+fe80::1a49:caa9:d212:a1f dev br-lan lladdr e0:1f:88:f6:66:82 REACHABLE
+2409:8a70:d5b0:1d00:6d41:b2f8:f233:508c dev br-lan lladdr 94:87:e0:44:e2:32 REACHABLE
+fe80::da32:e3ff:fe0a:895e dev br-lan lladdr d8:32:e3:0a:89:5e REACHABLE
+2409:8a70:d5b0:1d00::f4a dev br-lan lladdr b8:27:eb:a5:d0:af STALE
+2409:8a70:d5b0:1d00:211:32ff:fe2c:a785 dev br-lan  FAILED
