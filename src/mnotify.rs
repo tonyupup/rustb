@@ -33,8 +33,7 @@ pub fn not() -> Receiver<arp::DhcpV4Record> {
         loop {
             if let Ok(e) = rx.recv() {
                 match e {
-                    NoticeWrite(p) | NoticeRemove(p) | Create(p) | Write(p) | Chmod(p)
-                    | Remove(p) => {
+                    NoticeWrite(p) => {
                         let fname = p.file_name().unwrap().to_str().unwrap();
                         if conf::config::CONFIG_PATH.ends_with(fname) {
                             if let Ok(mut c) = conf::config::GLOBAL_CONFIG.try_write() {
@@ -49,7 +48,7 @@ pub fn not() -> Receiver<arp::DhcpV4Record> {
                             }
                         }
                     }
-                    _=>()
+                    _ => (),
                 }
             }
         }

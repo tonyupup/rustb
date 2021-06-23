@@ -1,4 +1,5 @@
 use std::{collections::HashMap, path::Path, sync::RwLock, thread::sleep, time};
+use serde::{self, Deserialize, Serialize};
 
 use config::{Config, File, Value};
 use lazy_static::lazy_static;
@@ -18,3 +19,8 @@ pub fn get_config(section: &str) -> Option<HashMap<String, Value>> {
     };
 }
 
+
+#[derive(Debug,Deserialize, Serialize)]
+pub struct host_config {
+    pub host: String,
+}

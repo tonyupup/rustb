@@ -1,19 +1,13 @@
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    convert::TryInto,
-    io::{stdout, Read, Write},
-    iter::FromIterator,
-    ops::{Add, IndexMut},
-    sync::RwLock,
-    time, usize,
+use std::{cell::RefCell, collections::{HashMap}, error::Error, fmt::Display, io::{Error as IOError, Write}, ops::{Add}, time, usize};
+
+use crate::{
+    arp::DhcpV4Record,
+    conf::{self, config::get_config},
 };
-
-use crate::{arp::DhcpV4Record, conf::{self, config::get_config}};
-use curl::{easy::Easy, Error};
-use serde::{self, Deserialize, Serialize, __private::de::IdentifierDeserializer};
-
-use serde_json::Deserializer;
+use crate::{enum_error, impl_display, impl_error, impl_from};
+use conf::config::host_config;
+use curl::{easy::Easy, Error as CurlError};
+use serde::{self, Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone)]
 struct DnspodConfig {
@@ -115,9 +109,11 @@ pub struct DnsPod {
     lastupdate: RefCell<time::SystemTime>,
     dnsrecord: RefCell<HashMap<String, Record>>,
 }
+self::enum_error!(DnsPodHandleError,DnsPodHandleError::CurlError=>CurlError,DnsPodHandleError::IOError=>IOError);
+
 impl DnsPod {
     pub fn new() -> Self {
-        let result = Self::get_record_list();
+        let result = Self::get_record_list().unwrap();
 
         return Self {
             lastupdate: RefCell::new(result.0),
@@ -125,11 +121,11 @@ impl DnsPod {
         };
     }
 
-    fn get_record_list() -> (time::SystemTime, HashMap<String, Record>) {
+    fn get_record_list() -> Result<(time::SystemTime, HashMap<String, Record>), DnsPodHandleError> {
         // client.post()
         let req_body = serde_urlencoded::to_string(&DnsPodglobalBody::default()).unwrap();
         let resp =
-            http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes()).unwrap();
+            http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes())?;
         let mut result = serde_json::from_slice::<RecordResp>(&resp[..]).unwrap();
 
         let mut hn = HashMap::new();
@@ -141,49 +137,47 @@ impl DnsPod {
             count -= 1;
         }
 
-        (time::SystemTime::now(), hn)
+        Ok((time::SystemTime::now(), hn))
     }
-    pub fn add_or_update(&self, r: &DhcpV4Record) -> Result<(), Error> {
-        conf::config::get_config("client").map(|fc|{
+    pub fn add_or_update(
+        &self,
+        r: &DhcpV4Record,
+        c: &host_config,
+    ) -> Result<(), DnsPodHandleError> {
+        if let Some(fc) = conf::config::get_config("client") {
             if let Some(conf) = fc.get(&r.mac[..]) {
-                if let Ok(c) = conf.into_table() {
-                    let c = c.get("host").and_then(|v| Some(v.into_str().map_or_else(&r.host[..], |v| &v[..]))).unwrap();
-                    // if let Some(recrod) = self.dnsrecord.borrow().get(hostName) {
-                    //     println!("{:?},record",recrod);
-                    // }
-                    ()
-                }
+                let c: host_config = conf.clone().try_into().unwrap();
+                println!("{:?}", c);
             }
-        });
+        }
         Ok(())
     }
 
-    pub fn delete(&self, r: &Record) -> Result<(), Error> {
+    pub fn delete(&self, r: &Record) -> Result<(), DnsPodHandleError> {
         Ok(())
     }
-    pub fn add(&self, r: &Record) -> Result<(), Error> {
+    pub fn add(&self, r: &Record) -> Result<(), DnsPodHandleError> {
         Ok(())
     }
 
-    fn lazy_update(&self, timeout: time::Duration) {
+    fn lazy_update(&self, timeout: time::Duration) ->Result<(),DnsPodHandleError>{
         if self.lastupdate.borrow().add(timeout) < time::SystemTime::now() {
             println!("update");
-            let new_record = Self::get_record_list();
+            let new_record = Self::get_record_list()?;
             *self.lastupdate.borrow_mut() = new_record.0;
             *self.dnsrecord.borrow_mut() = new_record.1;
         }
-    }
-    pub fn handle(&self, r: DhcpV4Record) -> Result<(), Error> {
-        // self.lastRecord.borrow().
-        self.lazy_update(time::Duration::from_secs(5));
-        if r.need(){
-            self.add_or_update(&r)?
-        }
         Ok(())
+    }
+    pub fn handle(&self, r: DhcpV4Record) -> Result<(), DnsPodHandleError> {
+        // self.lastRecord.borrow().
+        self.lazy_update(time::Duration::from_secs(5))?;
+        r.need().and_then(|c| self.add_or_update(&r, &c).or_else(|x|x)?;
+        //     .ok_or(err);
     }
 }
 
-fn http_request<'a>(url: &'a str, method: &'a str, body: &[u8]) -> Result<Vec<u8>, Error> {
+fn http_request<'a>(url: &'a str, method: &'a str, body: &[u8]) -> Result<Vec<u8>, CurlError> {
     let mut rawresp = Vec::new();
     let mut easy = Easy::new();
     easy.url(url).unwrap();
@@ -195,14 +189,12 @@ fn http_request<'a>(url: &'a str, method: &'a str, body: &[u8]) -> Result<Vec<u8
 
     {
         let mut trans = easy.transfer();
-        trans
-            .write_function(|data| {
-                rawresp.extend_from_slice(data);
-                Ok(data.len())
-            })?;
+        trans.write_function(|data| {
+            rawresp.extend_from_slice(data);
+            Ok(data.len())
+        })?;
 
-        trans
-            .read_function(|mut buf| Ok(buf.write(body).unwrap_or(0)))?;
+        trans.read_function(|mut buf| Ok(buf.write(body).unwrap_or(0)))?;
 
         trans.perform()?;
     }

@@ -1,5 +1,5 @@
 use std::error::Error;
-
+mod macros;
 mod arp;
 mod conf;
 mod dnspod;

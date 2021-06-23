@@ -7,17 +7,17 @@ use std::{
     str::FromStr,
 };
 
-use conf::config::{get_config, GLOBAL_CONFIG};
-
-use crate::conf;
+use crate::conf::{self, config::host_config};
+use crate::{enum_error, impl_display, impl_error, impl_from};
+self::enum_error!(DhcpV4RecordParseError,DhcpV4RecordParseError::AddrParseError=>AddrParseError,DhcpV4RecordParseError::ParseIntError=>ParseIntError);
 
 #[derive(Debug)]
 pub struct DhcpV4Record {
-    pub(crate) time: u32,
-    pub(crate) mac: String,
-    pub(crate) ipv4: Ipv4Addr,
-    pub(crate) host: String,
-    pub(crate) other: String,
+    pub time: u32,
+    pub mac: String,
+    pub ipv4: Ipv4Addr,
+    pub host: String,
+    pub other: String,
 }
 
 impl DhcpV4Record {
@@ -50,9 +50,16 @@ impl DhcpV4Record {
             },
         )
     }
-    
-    pub fn need(&self) -> bool {
-        get_config("client").map_or_else(|| false, |x| x.get(&self.mac[..]).is_none())
+
+    pub fn need(&self) -> Option<host_config> {
+        if let Some(fc) = conf::config::get_config("client") {
+            if let Some(conf) = fc.get(&self.mac[..]) {
+                let c: host_config = conf.clone().try_into().unwrap();
+                return Some(c);
+            }
+        }
+        None
+        // get_config("client").map_or_else(|| false, |x| x.get(&self.mac[..]).is_some())
     }
 
     pub fn gethost(&self) -> bool {
@@ -60,68 +67,6 @@ impl DhcpV4Record {
     }
 }
 
-#[macro_export]
-macro_rules! impl_from {
-    ($t:ty, $($y:path=>$x:path),+) =>{
-        $(
-            impl From<$x> for $t {
-                fn from(args:$x) -> Self {
-                    $y(args)
-                }
-            }
-        )+
-    }
-}
-
-#[macro_export]
-macro_rules! impl_display {
-    ($t:ty,$($y:path=>$x:path),+) => {
-
-        impl Display for $t {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $(
-                        $y(p)=>p.fmt(f)?,
-                    )+
-                };
-                Ok(())
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! impl_error {
-    ($t:ty,$($y:path=>$x:path),+) => {
-        impl Error for $t {
-            fn cause(&self) -> Option<&dyn Error> {
-                match *self {
-                    $(
-                        $y(ref p)=>Some(p),
-                    )+
-                }
-            }
-        }
-    }
-}
-#[macro_export]
-macro_rules! enum_error {
-    ($t:ident,$($fullerr:path=>$err:ident),+) =>{
-        #[derive(Debug)]
-        pub enum $t {
-            $(
-                $err($err),
-            )+
-        }
-
-        impl_display!($t,$($fullerr=>$err),+);
-        impl_error!($t,$($fullerr=>$err),+);
-        impl_from!($t,$($fullerr=>$err),+);
-
-    }
-}
-
-enum_error!(DhcpV4RecordParseError,DhcpV4RecordParseError::AddrParseError=>AddrParseError,DhcpV4RecordParseError::ParseIntError=>ParseIntError);
 
 impl FromStr for DhcpV4Record {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
