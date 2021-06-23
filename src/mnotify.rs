@@ -12,8 +12,9 @@ use DebouncedEvent::Error;
 use DebouncedEvent::{Chmod, Create, NoticeRemove, NoticeWrite, Remove, Rename, Rescan, Write};
 
 use crate::arp;
+use crate::arp::DhcpV4Record;
 
-pub fn not() -> Receiver<arp::DhcpRecord> {
+pub fn not() -> Receiver<arp::DhcpV4Record> {
     let dhcp_file = env::var("n_path").unwrap_or(String::from("dhcp.lease"));
     // Create a channel to receive the events.
     let (tx, rx) = mpsc::channel();
@@ -33,7 +34,9 @@ pub fn not() -> Receiver<arp::DhcpRecord> {
                 Ok(_) => {
                     let rs = fs::read_to_string(&dhcp_file[..]).unwrap();
                     for p in rs.split_terminator('\n') {
-                        let needrecrod = arp::DhcpRecord::from(p);
+                        if let Ok(p) = p.parse::<DhcpV4Record>() {
+                            ttx.send(p).unwrap();
+                        }
                         
                     }
                 }

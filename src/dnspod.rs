@@ -9,7 +9,7 @@ use std::{
     time, usize,
 };
 
-use crate::{arp::DhcpRecord, conf::config::get_config};
+use crate::{arp::DhcpV4Record, conf::config::get_config};
 use curl::{easy::Easy, Error};
 use serde::{self, Deserialize, Serialize, __private::de::IdentifierDeserializer};
 
@@ -112,7 +112,6 @@ pub struct RecordResp {
     pub records: Vec<Record>,
 }
 pub struct DnsPod {
-    conf: DnspodConfig,
     lastupdate: RefCell<time::SystemTime>,
     dnsrecord: RefCell<HashMap<String, Record>>,
 }
@@ -121,7 +120,6 @@ impl DnsPod {
         let result = Self::get_record_list();
 
         return Self {
-            conf: DnspodConfig::get(),
             lastupdate: RefCell::new(result.0),
             dnsrecord: RefCell::new(result.1),
         };
@@ -166,7 +164,7 @@ impl DnsPod {
         }
         Ok(())
     }
-    pub fn handle(&self, t: DhcpRecord) -> Result<(), Error> {
+    pub fn handle(&self, _t: DhcpV4Record) -> Result<(), Error> {
         // self.lastRecord.borrow().
         self.lazy_update(time::Duration::from_secs(5));
         Ok(())

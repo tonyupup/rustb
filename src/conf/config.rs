@@ -1,16 +1,11 @@
 use std::{
     collections::HashMap,
-    rc::Rc,
-    sync::{Mutex, RwLock},
-};
-#[macro_use]
-use std::{
-    cell::{Ref, RefCell},
+    sync::RwLock,
     path::Path,
 };
+
 use config::{Config, File, Value};
 use lazy_static::lazy_static;
-use serde_json::Deserializer;
 
 lazy_static! {
     pub static ref GLOBAL_CONFIG: RwLock<Config> = {
@@ -20,8 +15,8 @@ lazy_static! {
         RwLock::new(conf)
     };
 }
-pub fn get_config(Section: &str) -> Option<HashMap<String, Value>> {
-    return match GLOBAL_CONFIG.read().unwrap().get_table(Section) {
+pub fn get_config(section: &str) -> Option<HashMap<String, Value>> {
+    return match GLOBAL_CONFIG.read().unwrap().get_table(section) {
         Ok(t) => Some(t),
         Err(_) => None,
     };
