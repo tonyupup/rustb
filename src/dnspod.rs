@@ -9,7 +9,7 @@ use std::{
     time, usize,
 };
 
-use crate::{arp::DhcpV4Record, conf::config::get_config};
+use crate::{arp::DhcpV4Record, conf::{self, config::get_config}};
 use curl::{easy::Easy, Error};
 use serde::{self, Deserialize, Serialize, __private::de::IdentifierDeserializer};
 
@@ -128,10 +128,8 @@ impl DnsPod {
     fn get_record_list() -> (time::SystemTime, HashMap<String, Record>) {
         // client.post()
         let req_body = serde_urlencoded::to_string(&DnsPodglobalBody::default()).unwrap();
-        // let req_body = serde_json::to_string(&DnsPodglobalBody::default()).unwrap();
         let resp =
             http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes()).unwrap();
-        // println!("{}",String::from_utf8(resp.clone()).unwrap());
         let mut result = serde_json::from_slice::<RecordResp>(&resp[..]).unwrap();
 
         let mut hn = HashMap::new();
@@ -145,9 +143,21 @@ impl DnsPod {
 
         (time::SystemTime::now(), hn)
     }
-    pub fn update(&self, r: &Record) -> Result<(), Error> {
+    pub fn add_or_update(&self, r: &DhcpV4Record) -> Result<(), Error> {
+        conf::config::get_config("client").map(|fc|{
+            if let Some(conf) = fc.get(&r.mac[..]) {
+                if let Ok(c) = conf.into_table() {
+                    let c = c.get("host").and_then(|v| Some(v.into_str().map_or_else(&r.host[..], |v| &v[..]))).unwrap();
+                    // if let Some(recrod) = self.dnsrecord.borrow().get(hostName) {
+                    //     println!("{:?},record",recrod);
+                    // }
+                    ()
+                }
+            }
+        });
         Ok(())
     }
+
     pub fn delete(&self, r: &Record) -> Result<(), Error> {
         Ok(())
     }
@@ -155,18 +165,20 @@ impl DnsPod {
         Ok(())
     }
 
-    fn lazy_update(&self, timeout: time::Duration) -> Result<(), Error> {
+    fn lazy_update(&self, timeout: time::Duration) {
         if self.lastupdate.borrow().add(timeout) < time::SystemTime::now() {
             println!("update");
             let new_record = Self::get_record_list();
             *self.lastupdate.borrow_mut() = new_record.0;
             *self.dnsrecord.borrow_mut() = new_record.1;
         }
-        Ok(())
     }
-    pub fn handle(&self, _t: DhcpV4Record) -> Result<(), Error> {
+    pub fn handle(&self, r: DhcpV4Record) -> Result<(), Error> {
         // self.lastRecord.borrow().
         self.lazy_update(time::Duration::from_secs(5));
+        if r.need(){
+            self.add_or_update(&r)?
+        }
         Ok(())
     }
 }
@@ -177,8 +189,8 @@ fn http_request<'a>(url: &'a str, method: &'a str, body: &[u8]) -> Result<Vec<u8
     easy.url(url).unwrap();
 
     if method == "POST" {
-        easy.post(true).unwrap();
-        easy.post_field_size(body.len() as u64);
+        easy.post(true)?;
+        easy.post_field_size(body.len() as u64)?;
     }
 
     {
@@ -187,14 +199,12 @@ fn http_request<'a>(url: &'a str, method: &'a str, body: &[u8]) -> Result<Vec<u8
             .write_function(|data| {
                 rawresp.extend_from_slice(data);
                 Ok(data.len())
-            })
-            .unwrap();
+            })?;
 
         trans
-            .read_function(|mut buf| Ok(buf.write(body).unwrap_or(0)))
-            .unwrap();
+            .read_function(|mut buf| Ok(buf.write(body).unwrap_or(0)))?;
 
-        trans.perform().unwrap();
+        trans.perform()?;
     }
     Ok(rawresp)
 }

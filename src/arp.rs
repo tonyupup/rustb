@@ -1,11 +1,15 @@
 use std::{
-    error::{Error},
+    error::Error,
     fmt::Display,
     net::{AddrParseError, Ipv4Addr, Ipv6Addr},
     num::ParseIntError,
     process,
     str::FromStr,
 };
+
+use conf::config::{get_config, GLOBAL_CONFIG};
+
+use crate::conf;
 
 #[derive(Debug)]
 pub struct DhcpV4Record {
@@ -45,6 +49,14 @@ impl DhcpV4Record {
                 None
             },
         )
+    }
+    
+    pub fn need(&self) -> bool {
+        get_config("client").map_or_else(|| false, |x| x.get(&self.mac[..]).is_none())
+    }
+
+    pub fn gethost(&self) -> bool {
+        false
     }
 }
 

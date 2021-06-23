@@ -1,3 +1,5 @@
+use std::error::Error;
+
 mod arp;
 mod conf;
 mod dnspod;
@@ -58,12 +60,11 @@ mod mnotify;
 //     return r;
 // }
 
-fn main() -> () {
+fn main() -> Result<(),Box<dyn Error>> {
     let  d = dnspod::DnsPod::new();
 
     let  f = mnotify::not();
     loop {
-        let c = f.recv().unwrap();
-        d.handle(c).unwrap();
+        d.handle(f.recv()?)?;
     }
 }

@@ -1,7 +1,7 @@
 dnspod:
   token: "193093,9fcd315dc5b363f4b26f89a5014a3d2e"
   domain: zltop.cn
-  domain_id: 
+  domain_id: 3
 
 client:
   #mac
