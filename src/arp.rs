@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     fmt::Display,
-    net::{AddrParseError, Ipv4Addr, Ipv6Addr},
+    net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
     num::ParseIntError,
     process,
     str::FromStr,
@@ -21,7 +21,7 @@ pub struct DhcpV4Record {
 }
 
 impl DhcpV4Record {
-    pub(crate) fn get_global_ipv6(&self) -> Option<Ipv6Addr> {
+    pub(crate) fn get_global_ipv6(&self) -> Option<IpAddr> {
         // let m = process::Command::new("ip")
         //     .args(vec!["-6", "neigh", "show"])
         //     .output()
@@ -41,7 +41,7 @@ impl DhcpV4Record {
                                 || c.is_multicast()
                                 || (c.segments()[0] & 0xffc0) == 0xfe80)
                             {
-                                return Some(c);
+                                return Some(IpAddr::V6(c));
                             }
                         }
                     }
@@ -54,7 +54,7 @@ impl DhcpV4Record {
     pub fn need(&self) -> Option<host_config> {
         if let Some(fc) = conf::config::get_config("client") {
             if let Some(conf) = fc.get(&self.mac[..]) {
-                let c: host_config = conf.clone().try_into().unwrap();
+                let  c: host_config=conf.clone().try_into().unwrap();
                 return Some(c);
             }
         }

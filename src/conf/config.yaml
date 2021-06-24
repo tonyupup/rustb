@@ -6,5 +6,5 @@ dnspod:
 client:
   #mac
   02:42:c0:a8:7b:02:
-    host: minopenwrt
+    host: dsm
     

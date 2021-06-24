@@ -1,5 +1,3 @@
-use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, io::{Error as IOError, Write}, net::{IpAddr, Ipv4Addr}, ops::Add, time, usize};
-
 use crate::{
     arp::DhcpV4Record,
     conf::{self, config::get_config},
@@ -8,6 +6,17 @@ use crate::{enum_error, impl_display, impl_error, impl_from};
 use conf::config::host_config;
 use curl::{easy::Easy, Error as CurlError};
 use serde::{self, Deserialize, Serialize};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    error::Error,
+    fmt::Display,
+    io::{Error as IOError, Write},
+    net::{IpAddr, Ipv4Addr},
+    num::ParseIntError,
+    ops::Add,
+    time, usize,
+};
 
 #[derive(Debug, Default, Clone)]
 struct DnspodConfig {
@@ -34,29 +43,36 @@ impl DnspodConfig {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct DnsPodGlobalBody{
+struct DnsPodGlobalBody {
     login_token: String,
     format: &'static str,
     domain: String,
 }
 #[derive(Serialize, Debug)]
 struct DnsPodUpdateBody {
+    #[serde(flatten)]
     pub global: DnsPodGlobalBody,
-    pub record:u32,
-    pub sub_domain:String,
-    pub record_type:RecordType,
-    pub record_line:String,
-    pub value:IpAddr,
-    pub max:u8,
+    pub record_id: u32,
+    pub sub_domain: String,
+    pub record_type: RecordType,
+    pub record_line: String,
+    pub value: IpAddr,
+    pub max: u8,
 }
 
-// impl Serialize for DnsPodUpdateBody {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::Serializer {
-        
-//     }
-// }
+impl Default for DnsPodUpdateBody {
+    fn default() -> Self {
+        Self {
+            global: DnsPodGlobalBody::default(),
+            record_id: 0,
+            sub_domain: "you".to_string(),
+            record_type: RecordType::default(),
+            record_line: "xx".to_string(),
+            value: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            max: 0,
+        }
+    }
+}
 
 impl Default for DnsPodGlobalBody {
     fn default() -> Self {
@@ -67,7 +83,7 @@ impl Default for DnsPodGlobalBody {
         }
     }
 }
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone)]
 pub enum RecordType {
     A,
     AAAA,
@@ -134,8 +150,11 @@ pub struct DnsPod {
     dnsrecord: RefCell<HashMap<String, Record>>,
 }
 
-
-self::enum_error!(DnsPodHandleError,DnsPodHandleError::CurlError=>CurlError,DnsPodHandleError::IOError=>IOError);
+self::enum_error!(
+    DnsPodHandleError,
+    DnsPodHandleError::CurlError=>CurlError,
+    DnsPodHandleError::IOError=>IOError,
+    DnsPodHandleError::ParseIntError=>ParseIntError);
 
 impl DnsPod {
     pub fn new() -> Self {
@@ -174,9 +193,29 @@ impl DnsPod {
             .borrow()
             .get(c.host.as_ref().unwrap_or(&r.host))
         {
-            println!("{:?}", record);
+            //update dnspod records
+            if let Some(x) = &c.rtype {
+                if let RecordType::AAAA = x {
+                    let x = DnsPodUpdateBody {
+                        global: DnsPodGlobalBody::default(),
+                        record_id: record.id.parse()?,
+                        sub_domain: c.host.clone().unwrap_or(r.host.clone()),
+                        record_line: "默认".to_string(),
+                        record_type: x.clone(),
+                        value: r.get_global_ipv6().unwrap(),
+                        max: 1,
+                    };
+                    let resp = http_request(
+                        "https://dnsapi.cn/Record.Modify",
+                        "POST",
+                        serde_urlencoded::to_string(x).unwrap().as_bytes(),
+                    )?;
+                    println!("{:?}", String::from_utf8(resp));
+                }
+            }
+        } else {
+            //add record
         }
-        println!("{:?}", c);
 
         Ok(())
     }
