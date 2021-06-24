@@ -1,12 +1,4 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    error::Error,
-    fmt::Display,
-    io::{Error as IOError, Write},
-    ops::Add,
-    time, usize,
-};
+use std::{cell::RefCell, collections::HashMap, error::Error, fmt::Display, io::{Error as IOError, Write}, net::{IpAddr, Ipv4Addr}, ops::Add, time, usize};
 
 use crate::{
     arp::DhcpV4Record,
@@ -42,15 +34,33 @@ impl DnspodConfig {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-struct DnsPodglobalBody {
+struct DnsPodGlobalBody{
     login_token: String,
     format: &'static str,
     domain: String,
 }
+#[derive(Serialize, Debug)]
+struct DnsPodUpdateBody {
+    pub global: DnsPodGlobalBody,
+    pub record:u32,
+    pub sub_domain:String,
+    pub record_type:RecordType,
+    pub record_line:String,
+    pub value:IpAddr,
+    pub max:u8,
+}
 
-impl Default for DnsPodglobalBody {
+// impl Serialize for DnsPodUpdateBody {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer {
+        
+//     }
+// }
+
+impl Default for DnsPodGlobalBody {
     fn default() -> Self {
-        DnsPodglobalBody {
+        DnsPodGlobalBody {
             login_token: DnspodConfig::get().token,
             format: "json",
             domain: DnspodConfig::get().domain,
@@ -58,13 +68,19 @@ impl Default for DnsPodglobalBody {
     }
 }
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
-pub enum record_type {
+pub enum RecordType {
     A,
     AAAA,
     Text,
     NS,
     CNAME,
     TXT,
+}
+
+impl Default for RecordType {
+    fn default() -> Self {
+        Self::AAAA
+    }
 }
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct Record {
@@ -74,7 +90,7 @@ pub struct Record {
     pub line_id: String,
 
     #[serde(rename = "type")]
-    pub rtype: record_type,
+    pub rtype: RecordType,
     pub ttl: String,
     pub value: String,
     pub weight: Option<String>,
@@ -117,6 +133,8 @@ pub struct DnsPod {
     lastupdate: RefCell<time::SystemTime>,
     dnsrecord: RefCell<HashMap<String, Record>>,
 }
+
+
 self::enum_error!(DnsPodHandleError,DnsPodHandleError::CurlError=>CurlError,DnsPodHandleError::IOError=>IOError);
 
 impl DnsPod {
@@ -131,7 +149,7 @@ impl DnsPod {
 
     fn get_record_list() -> Result<(time::SystemTime, HashMap<String, Record>), DnsPodHandleError> {
         // client.post()
-        let req_body = serde_urlencoded::to_string(&DnsPodglobalBody::default()).unwrap();
+        let req_body = serde_urlencoded::to_string(&DnsPodGlobalBody::default()).unwrap();
         let resp = http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes())?;
         let mut result = serde_json::from_slice::<RecordResp>(&resp[..]).unwrap();
 
@@ -156,7 +174,7 @@ impl DnsPod {
             .borrow()
             .get(c.host.as_ref().unwrap_or(&r.host))
         {
-            println!("{:?}",record);
+            println!("{:?}", record);
         }
         println!("{:?}", c);
 
