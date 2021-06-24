@@ -61,12 +61,7 @@ impl DhcpV4Record {
         None
         // get_config("client").map_or_else(|| false, |x| x.get(&self.mac[..]).is_some())
     }
-
-    pub fn gethost(&self) -> bool {
-        false
-    }
 }
-
 
 impl FromStr for DhcpV4Record {
     fn from_str(s: &str) -> Result<Self, Self::Err> {

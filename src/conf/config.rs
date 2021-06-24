@@ -22,5 +22,5 @@ pub fn get_config(section: &str) -> Option<HashMap<String, Value>> {
 
 #[derive(Debug,Deserialize, Serialize)]
 pub struct host_config {
-    pub host: String,
+    pub host: Option<String>,
 }

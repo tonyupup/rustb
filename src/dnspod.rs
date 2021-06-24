@@ -1,4 +1,12 @@
-use std::{cell::RefCell, collections::{HashMap}, error::Error, fmt::Display, io::{Error as IOError, Write}, ops::{Add}, time, usize};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    error::Error,
+    fmt::Display,
+    io::{Error as IOError, Write},
+    ops::Add,
+    time, usize,
+};
 
 use crate::{
     arp::DhcpV4Record,
@@ -124,8 +132,7 @@ impl DnsPod {
     fn get_record_list() -> Result<(time::SystemTime, HashMap<String, Record>), DnsPodHandleError> {
         // client.post()
         let req_body = serde_urlencoded::to_string(&DnsPodglobalBody::default()).unwrap();
-        let resp =
-            http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes())?;
+        let resp = http_request("https://dnsapi.cn/Record.List", "POST", req_body.as_bytes())?;
         let mut result = serde_json::from_slice::<RecordResp>(&resp[..]).unwrap();
 
         let mut hn = HashMap::new();
@@ -144,12 +151,15 @@ impl DnsPod {
         r: &DhcpV4Record,
         c: &host_config,
     ) -> Result<(), DnsPodHandleError> {
-        if let Some(fc) = conf::config::get_config("client") {
-            if let Some(conf) = fc.get(&r.mac[..]) {
-                let c: host_config = conf.clone().try_into().unwrap();
-                println!("{:?}", c);
-            }
+        if let Some(record) = self
+            .dnsrecord
+            .borrow()
+            .get(c.host.as_ref().unwrap_or(&r.host))
+        {
+            println!("{:?}",record);
         }
+        println!("{:?}", c);
+
         Ok(())
     }
 
@@ -160,7 +170,7 @@ impl DnsPod {
         Ok(())
     }
 
-    fn lazy_update(&self, timeout: time::Duration) ->Result<(),DnsPodHandleError>{
+    fn lazy_update(&self, timeout: time::Duration) -> Result<(), DnsPodHandleError> {
         if self.lastupdate.borrow().add(timeout) < time::SystemTime::now() {
             println!("update");
             let new_record = Self::get_record_list()?;
@@ -172,8 +182,10 @@ impl DnsPod {
     pub fn handle(&self, r: DhcpV4Record) -> Result<(), DnsPodHandleError> {
         // self.lastRecord.borrow().
         self.lazy_update(time::Duration::from_secs(5))?;
-        r.need().and_then(|c| self.add_or_update(&r, &c).or_else(|x|x)?;
-        //     .ok_or(err);
+        if let Some(c) = r.need() {
+            self.add_or_update(&r, &c)?;
+        }
+        Ok(())
     }
 }
 
